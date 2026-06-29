@@ -58,22 +58,14 @@ During our rigorous 14-Phase stress testing and Chaos Engineering benchmarks, Ke
 
 ## 🛠 Tech Stack
 
-### Backend (Core Engine)
-- **Language:** Go (1.24.x)
-- **Web Framework:** Echo (`labstack/echo/v4`)
-- **Database Driver:** pgx (`jackc/pgx/v5` for `SKIP LOCKED` support)
-- **Cache / State:** go-redis (`redis/go-redis/v9`)
-- **Metrics:** Prometheus (`prometheus/client_golang`)
-
-### Frontend (Observability Dashboard)
-- **Core:** React 18 & TypeScript (Vite)
-- **Data Visualization:** Recharts
-- **Styling:** Vanilla CSS (CSS Variables, Glassmorphism)
-
-### Infrastructure
-- **Primary Data Store:** PostgreSQL 17 (Event storage & delivery queue)
-- **Coordination Layer:** Redis 8 (Rate limiting & circuit breaker state)
-- **Containerization:** Docker & Docker Compose
+| Component | Technology | Description |
+| :--- | :--- | :--- |
+| **Backend Engine** | Go 1.24, Echo, `pgx`, `go-redis` | Ingests webhooks, authenticates requests (JWT/API Keys), and orchestrates the highly concurrent poller pool. |
+| **Primary Database** | PostgreSQL 17 | Handles multi-tenant data storage and manages the high-throughput delivery queue utilizing `SKIP LOCKED`. |
+| **Coordination Layer** | Redis 8 | Maintains distributed circuit breaker states and executes sliding-window tenant rate limits. |
+| **Frontend** | React, Vite, TypeScript, Recharts | Provides a real-time observability dashboard for tracking queue depth, delivery success rates, and live payloads. |
+| **Observability** | Prometheus, Grafana | Exposes and visualizes custom Go metrics for monitoring throughput, latency, and worker utilization. |
+| **Infrastructure** | Docker, Docker Compose | Fully containerized multi-container deployment designed for zero-cost hosting and easy chaos testing. |
 
 ---
 
