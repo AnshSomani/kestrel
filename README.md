@@ -83,26 +83,26 @@ Kestrel isolates the high-I/O overhead of outgoing HTTP webhooks away from your 
 
 ```mermaid
 graph LR
-    Client[Core SaaS App] -->|POST /events<br>(API Key)| API[Kestrel API Gateway]
+    Client["Core SaaS App"] -->|"POST /events (API Key)"| API["Kestrel API Gateway"]
     
     subgraph Kestrel Engine
-        API -->|Insert Event| DB[(PostgreSQL)]
-        API -.->|Enqueue Jobs| Q[Delivery Queue]
+        API -->|"Insert Event"| DB[("(PostgreSQL)")]
+        API -.->|"Enqueue Jobs"| Q["Delivery Queue"]
         Q --> DB
         
-        W1[Poller] -->|SKIP LOCKED| DB
-        W2[Poller] -->|SKIP LOCKED| DB
-        W3[Poller] -->|SKIP LOCKED| DB
+        W1["Poller"] -->|"SKIP LOCKED"| DB
+        W2["Poller"] -->|"SKIP LOCKED"| DB
+        W3["Poller"] -->|"SKIP LOCKED"| DB
         
-        W1 <-->|Check State| CB[(Redis)]
+        W1 <-->|"Check State"| CB[("(Redis)")]
     end
     
-    W1 -->|HTTP POST| Target1[Downstream Webhook]
-    W2 -->|HTTP POST| Target2[Downstream Webhook]
-    W3 -->|HTTP POST| Target3[Downstream Webhook]
+    W1 -->|"HTTP POST"| Target1["Downstream Webhook"]
+    W2 -->|"HTTP POST"| Target2["Downstream Webhook"]
+    W3 -->|"HTTP POST"| Target3["Downstream Webhook"]
     
-    User[Developer] -->|Login (JWT)| Dashboard[React Portal]
-    Dashboard -->|GET /stats| API
+    User["Developer"] -->|"Login (JWT)"| Dashboard["React Portal"]
+    Dashboard -->|"GET /stats"| API
 ```
 
 ---
@@ -149,11 +149,6 @@ Kestrel ships with a comprehensive CLI benchmarking tool to validate performance
 ```bash
 go run ./cmd/bench -phase million
 ```
-### Queue Drain Time (1M Event Burst)
-Because all 1,000,000 events were injected simultaneously, the system experienced an immediate backlog. The following latencies reflect the time events spent waiting in the queue before being successfully delivered:
-- **P50 Queue Wait Time:** ~7.4 min
-- **P95 Queue Wait Time:** ~12.4 min
-- **P99 Queue Wait Time:** ~12.9 min
 
 **Run the Chaos Engineering Suite:**
 ```bash
