@@ -16,16 +16,27 @@ type RedisStore struct {
 
 // NewRedisStore creates a new RedisStore, connects to the given address, and
 // verifies reachability with a PING. The redisURL parameter is a host:port
-// string (e.g. "localhost:6379").
+// string (e.g. "localhost:6379") or a full URI (e.g. "rediss://...").
 func NewRedisStore(redisURL string) (*RedisStore, error) {
-	client := redis.NewClient(&redis.Options{
-		Addr:         redisURL,
-		DialTimeout:  5 * time.Second,
-		ReadTimeout:  3 * time.Second,
-		WriteTimeout: 3 * time.Second,
-		PoolSize:     20,
-		MinIdleConns: 5,
-	})
+	var opts *redis.Options
+	var err error
+
+	if len(redisURL) > 8 && (redisURL[:8] == "redis://" || redisURL[:9] == "rediss://") {
+		opts, err = redis.ParseURL(redisURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse redis URL: %w", err)
+		}
+	} else {
+		opts = &redis.Options{Addr: redisURL}
+	}
+
+	opts.DialTimeout = 5 * time.Second
+	opts.ReadTimeout = 3 * time.Second
+	opts.WriteTimeout = 3 * time.Second
+	opts.PoolSize = 20
+	opts.MinIdleConns = 5
+
+	client := redis.NewClient(opts)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
