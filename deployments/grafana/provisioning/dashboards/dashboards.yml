@@ -1,0 +1,12 @@
+apiVersion: 1
+
+providers:
+  - name: Kestrel
+    orgId: 1
+    folder: Kestrel
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

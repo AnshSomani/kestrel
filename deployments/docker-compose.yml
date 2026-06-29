@@ -1,0 +1,111 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    command: ["postgres", "-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off", "-c", "max_connections=200"]
+    environment:
+      POSTGRES_USER: kestrel
+      POSTGRES_PASSWORD: kestrel
+      POSTGRES_DB: kestrel
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kestrel"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kestrel
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kestrel
+
+  kestrel:
+    build:
+      context: ..
+      dockerfile: deployments/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgres://kestrel:kestrel@postgres:5432/kestrel?sslmode=disable
+      REDIS_URL: redis:6379
+      API_KEY: kestrel-dev-key
+      SERVER_PORT: "8080"
+      WORKER_POOL_SIZE: "1000"
+      MAX_CONCURRENT: "1000"
+      POLL_INTERVAL_MS: "50"
+      DEQUEUE_BATCH: "500"
+      NUM_POLLERS: "32"
+      CB_FAIL_THRESHOLD: "5000"
+      CB_WINDOW_MS: "60000"
+      CB_RESET_TIMEOUT_MS: "30000"
+      RETRY_MAX_ATTEMPTS: "3"
+      RETRY_BASE_DELAY_MS: "100"
+      RETRY_MAX_DELAY_MS: "500"
+      RATE_LIMIT_RATE: "1000000"
+      RATE_LIMIT_WINDOW_MS: "60000"
+      DELIVERY_TIMEOUT_MS: "100"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - kestrel
+
+  webhook-target:
+    build:
+      context: ..
+      dockerfile: deployments/Dockerfile.target
+    ports:
+      - "9999:9999"
+    environment:
+      PORT: "9999"
+      FAIL_RATE: "0.0"
+      DELAY_MIN_MS: "0"
+    networks:
+      - kestrel
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - kestrel
+    networks:
+      - kestrel
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: kestrel
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    networks:
+      - kestrel
+
+volumes:
+  pgdata:
+
+networks:
+  kestrel:
+    driver: bridge
