@@ -82,27 +82,27 @@ During our rigorous 14-Phase stress testing and Chaos Engineering benchmarks, Ke
 Kestrel isolates the high-I/O overhead of outgoing HTTP webhooks away from your core SaaS product, executing them asynchronously through a highly tuned worker pool.
 
 ```mermaid
-graph LR
-    Client["Core SaaS App"] -->|"POST /events (API Key)"| API["Kestrel API Gateway"]
+graph TD
+    Client["Core SaaS App"] -->|"POST /events"| API["Kestrel API Gateway"]
+    User["Developer"] -->|"Login (JWT)"| Dashboard["React Portal"]
     
-    subgraph Kestrel Engine
+    Dashboard -.->|"GET /stats"| API
+
+    subgraph "Kestrel Engine"
         API -->|"Insert Event"| DB[("(PostgreSQL)")]
-        API -.->|"Enqueue Jobs"| Q["Delivery Queue"]
-        Q --> DB
         
-        W1["Poller"] -->|"SKIP LOCKED"| DB
-        W2["Poller"] -->|"SKIP LOCKED"| DB
-        W3["Poller"] -->|"SKIP LOCKED"| DB
+        DB -->|"SKIP LOCKED"| W1["Worker 1"]
+        DB -->|"SKIP LOCKED"| W2["Worker 2"]
+        DB -->|"SKIP LOCKED"| W3["Worker 3"]
         
         W1 <-->|"Check State"| CB[("(Redis)")]
+        W2 <-->|"Check State"| CB
+        W3 <-->|"Check State"| CB
     end
     
-    W1 -->|"HTTP POST"| Target1["Downstream Webhook"]
-    W2 -->|"HTTP POST"| Target2["Downstream Webhook"]
-    W3 -->|"HTTP POST"| Target3["Downstream Webhook"]
-    
-    User["Developer"] -->|"Login (JWT)"| Dashboard["React Portal"]
-    Dashboard -->|"GET /stats"| API
+    W1 -->|"HTTP POST"| Target1["Downstream API"]
+    W2 -->|"HTTP POST"| Target2["Downstream API"]
+    W3 -->|"HTTP POST"| Target3["Downstream API"]
 ```
 
 ---
