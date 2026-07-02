@@ -31,7 +31,8 @@ export const Login: React.FC = () => {
     setLoading(true);
 
     try {
-      const endpoint = isSignup ? '/api/auth/signup' : '/api/auth/login';
+      const API_BASE = import.meta.env.VITE_API_URL || '';
+      const endpoint = isSignup ? `${API_BASE}/api/auth/signup` : `${API_BASE}/api/auth/login`;
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

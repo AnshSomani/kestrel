@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 
-async function apiFetch<T>(url: string): Promise<T> {
+const API_BASE = import.meta.env.VITE_API_URL || '';
+
+async function apiFetch<T>(endpoint: string): Promise<T> {
+  const url = `${API_BASE}${endpoint}`;
   let token = localStorage.getItem('kestrel_access_token');
   
   const makeRequest = async (t: string | null) => {
@@ -14,7 +17,7 @@ async function apiFetch<T>(url: string): Promise<T> {
   // If 401, attempt silent refresh
   if (res.status === 401) {
     try {
-      const refreshRes = await fetch('/api/auth/refresh', { method: 'POST' });
+      const refreshRes = await fetch(`${API_BASE}/api/auth/refresh`, { method: 'POST' });
       if (refreshRes.ok) {
         const data = await refreshRes.json();
         if (data.access_token) {
