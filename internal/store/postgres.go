@@ -21,17 +21,17 @@ type PostgresStore struct {
 	pool *pgxpool.Pool
 }
 
-// pool. MaxConns is set to 60 and MinConns to 10 to balance throughput with
+// pool. MaxConns is set to 40 and MinConns to 5 to balance throughput with
 // resource usage, ensuring enough connections for both the 32 background pollers
-// and concurrent HTTP ingestion requests.
+// and concurrent HTTP ingestion requests without hitting Render's 50-conn limit.
 func NewPostgresStore(ctx context.Context, databaseURL string) (*PostgresStore, error) {
 	cfg, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("parsing database URL: %w", err)
 	}
 
-	cfg.MaxConns = 60
-	cfg.MinConns = 10
+	cfg.MaxConns = 40
+	cfg.MinConns = 5
 
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
