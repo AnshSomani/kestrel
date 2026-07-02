@@ -54,7 +54,8 @@ export default function Subscriptions() {
     try {
       const eventTypes = Array.from(selectedEvents)
       const token = localStorage.getItem('kestrel_access_token')
-      const res = await fetch('/api/subscriptions', {
+      const API_BASE = import.meta.env.VITE_API_URL || '';
+      const res = await fetch(`${API_BASE}/api/subscriptions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
