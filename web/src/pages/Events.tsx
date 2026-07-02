@@ -94,7 +94,7 @@ export default function Events() {
               </tbody>
             </table>
 
-            <div className="events-pagination">
+            <div className="events-pagination" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', marginTop: '2rem' }}>
               <button
                 className="pagination-btn"
                 onClick={handlePrev}
@@ -102,6 +102,9 @@ export default function Events() {
               >
                 ← Previous
               </button>
+              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '14px' }}>
+                Page {history.length + 1}
+              </span>
               <button
                 className="pagination-btn"
                 onClick={handleNext}
