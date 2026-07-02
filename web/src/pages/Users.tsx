@@ -17,12 +17,12 @@ export default function Users() {
     const fetchUsers = async () => {
       try {
         const token = localStorage.getItem('kestrel_access_token')
-        const res = await fetch('/api/users', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+        const API_BASE = import.meta.env.VITE_API_URL || '';
+        const res = await fetch(`${API_BASE}/api/users`, {
+          headers: { 'Authorization': `Bearer ${token}` }
         })
         if (!res.ok) {
+          if (res.status === 403) throw new Error('You do not have admin permissions to view this page.')
           throw new Error('Failed to fetch users')
         }
         const data = await res.json()

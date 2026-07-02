@@ -18,7 +18,8 @@ export default function APIKeys() {
   const fetchKeys = async () => {
     try {
       const token = localStorage.getItem('kestrel_access_token')
-      const res = await fetch('/api/keys', {
+      const API_BASE = import.meta.env.VITE_API_URL || '';
+      const res = await fetch(`${API_BASE}/api/keys`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       if (!res.ok) throw new Error('Failed to fetch API keys')
@@ -40,7 +41,8 @@ export default function APIKeys() {
     setError('')
     try {
       const token = localStorage.getItem('kestrel_access_token')
-      const res = await fetch('/api/keys', {
+      const API_BASE = import.meta.env.VITE_API_URL || '';
+      const res = await fetch(`${API_BASE}/api/keys`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       })
@@ -60,7 +62,8 @@ export default function APIKeys() {
     
     try {
       const token = localStorage.getItem('kestrel_access_token')
-      const res = await fetch(`/api/keys/${id}`, {
+      const API_BASE = import.meta.env.VITE_API_URL || '';
+      const res = await fetch(`${API_BASE}/api/keys/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       })
