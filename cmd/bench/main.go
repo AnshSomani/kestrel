@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	phase := flag.String("phase", "all", "Which phase to run (correctness, queue, failure, circuit-breaker, million, all)")
+	phase := flag.String("phase", "all", "Which phase to run (correctness, queue, failure, circuit-breaker, twomillion, all)")
 	flag.Parse()
 
 	ctx := context.Background()
@@ -66,8 +66,8 @@ func main() {
 		runRateLimitBench(ctx, pool, subID)
 	case "timeout":
 		runTimeoutBench(ctx, pool, subID)
-	case "million":
-		runMillion(ctx, pool, subID)
+	case "twomillion":
+		runTwoMillion(ctx, pool, subID)
 	case "chaos":
 		runChaosBench(ctx, pool, subID)
 	default:
@@ -223,25 +223,25 @@ func runCorrectness(ctx context.Context, pool *pgxpool.Pool, subID string) {
 		stats["delivery_pending"], stats["delivery_in_flight"], stats["delivery_delivered"], stats["delivery_failed"], stats["delivery_dead"])
 }
 
-func runMillion(ctx context.Context, pool *pgxpool.Pool, subID string) {
-	fmt.Println("\n--- Phase 14: One Million Event Test ---")
+func runTwoMillion(ctx context.Context, pool *pgxpool.Pool, subID string) {
+	fmt.Println("\n--- Phase 14: Two Million Event Test ---")
 	
 	setTargetConfig(0, 0) // Perfect receiver
 	
-	fmt.Println("Seeding 1,000,000 events... (this may take a minute)")
+	fmt.Println("Seeding 2,000,000 events... (this may take a minute)")
 	
 	start := time.Now()
 	// Disable triggers
 	pool.Exec(ctx, "ALTER TABLE events DISABLE TRIGGER ALL;")
 	pool.Exec(ctx, "ALTER TABLE delivery_jobs DISABLE TRIGGER ALL;")
 	
-	// Insert 1M
+	// Insert 2M
 	_, err := pool.Exec(ctx, `
 		WITH new_events AS (
 			INSERT INTO events (type, payload, user_id)
 			SELECT 'bench.test', '{"bench": true}'::jsonb, user_id 
 			FROM subscriptions 
-			CROSS JOIN generate_series(1, 1000000)
+			CROSS JOIN generate_series(1, 2000000)
 			WHERE id = $1
 			RETURNING id, user_id
 		)
@@ -249,7 +249,7 @@ func runMillion(ctx context.Context, pool *pgxpool.Pool, subID string) {
 		SELECT id, $1, user_id FROM new_events;
 	`, subID)
 	if err != nil {
-		log.Fatalf("Failed to seed 1M: %v", err)
+		log.Fatalf("Failed to seed 2M: %v", err)
 	}
 	
 	pool.Exec(ctx, "ALTER TABLE events ENABLE TRIGGER ALL;")
@@ -261,7 +261,7 @@ func runMillion(ctx context.Context, pool *pgxpool.Pool, subID string) {
 		UPDATE system_stats SET value = (SELECT COUNT(*) FROM delivery_jobs WHERE status = 'pending') WHERE key = 'delivery_pending';
 	`)
 	
-	fmt.Printf("Seeded 1M events in %v\n", time.Since(start))
+	fmt.Printf("Seeded 2M events in %v\n", time.Since(start))
 	
 	fmt.Println("Waiting for queue to drain...")
 	start = time.Now()
@@ -269,9 +269,9 @@ func runMillion(ctx context.Context, pool *pgxpool.Pool, subID string) {
 	duration := time.Since(start)
 	
 	stats := getStats(ctx, pool)
-	throughput := 1000000.0 / duration.Seconds()
+	throughput := 2000000.0 / duration.Seconds()
 	
-	fmt.Printf("\n=== MILLION EVENT TEST RESULTS ===\n")
+	fmt.Printf("\n=== TWO MILLION EVENT TEST RESULTS ===\n")
 	fmt.Printf("Time taken:      %v\n", duration)
 	fmt.Printf("Peak throughput: %.2f events/sec\n", throughput)
 	fmt.Printf("Delivered:       %d\n", stats["delivery_delivered"])

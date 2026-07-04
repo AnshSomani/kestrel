@@ -130,9 +130,9 @@ Navigate to `http://localhost:5173`. An admin account is seeded on boot:
 
 Kestrel ships with a comprehensive CLI benchmarking tool to validate performance on your own hardware.
 
-**Run the 1 Million Event Stress Test:**
+**Run the 2 Million Event Stress Test:**
 ```bash
-go run ./cmd/bench -phase million
+go run ./cmd/bench -phase twomillion
 ```
 
 **Run the Chaos Engineering Suite:**
