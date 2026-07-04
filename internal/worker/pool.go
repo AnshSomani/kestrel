@@ -210,23 +210,7 @@ func (p *Pool) process(ctx context.Context, job *queue.Job) {
 		"attempt", job.AttemptCount,
 	)
 
-	// --- Step 1: Per-subscription rate limiting ---
-	// This prevents a single high-volume subscription from monopolizing
-	// delivery capacity and starving other subscriptions.
-	allowed, err := p.rl.Allow(ctx, job.SubscriptionID.String(), p.rlCfg.Rate, p.rlCfg.Window)
-	if err != nil {
-		logger.Error("rate limit check failed", "error", err)
-		// On error, the limiter fails open — we proceed with delivery.
-	}
-	if !allowed {
-		logger.Warn("rate limited, re-queuing")
-		p.metrics.DeliveriesTotal.WithLabelValues("rate_limited").Inc()
-		// Re-queue with a short delay to avoid tight retry loops.
-		_ = p.queue.Requeue(ctx, job.ID, "rate limited", time.Now().Add(5*time.Second))
-		return
-	}
-
-	// --- Step 2: Per-endpoint circuit breaker ---
+	// --- Step 1: Per-endpoint circuit breaker ---
 	// Prevents hammering endpoints that are down, giving them time to recover
 	// and protecting Kestrel from wasting resources on doomed deliveries.
 	cbAllowed, err := p.cb.Allow(ctx, job.EndpointURL)
@@ -238,6 +222,24 @@ func (p *Pool) process(ctx context.Context, job *queue.Job) {
 		logger.Warn("circuit open, re-queuing")
 		p.metrics.DeliveriesTotal.WithLabelValues("circuit_open").Inc()
 		_ = p.queue.Requeue(ctx, job.ID, "circuit breaker open", time.Now().Add(p.retryCfg.BaseDelay))
+		return
+	}
+
+	// --- Step 2: Per-subscription rate limiting ---
+	// This prevents a single high-volume subscription from monopolizing
+	// delivery capacity and starving other subscriptions.
+	// Checked AFTER the circuit breaker so that jobs failing the CB do not
+	// exhaust the rate limiter tokens.
+	allowed, err := p.rl.Allow(ctx, job.SubscriptionID.String(), p.rlCfg.Rate, p.rlCfg.Window)
+	if err != nil {
+		logger.Error("rate limit check failed", "error", err)
+		// On error, the limiter fails open — we proceed with delivery.
+	}
+	if !allowed {
+		logger.Warn("rate limited, re-queuing")
+		p.metrics.DeliveriesTotal.WithLabelValues("rate_limited").Inc()
+		// Re-queue with a short delay to avoid tight retry loops.
+		_ = p.queue.Requeue(ctx, job.ID, "rate limited", time.Now().Add(5*time.Second))
 		return
 	}
 

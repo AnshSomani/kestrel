@@ -30,8 +30,8 @@ func NewPostgresStore(ctx context.Context, databaseURL string) (*PostgresStore, 
 		return nil, fmt.Errorf("parsing database URL: %w", err)
 	}
 
-	cfg.MaxConns = 40
-	cfg.MinConns = 5
+	cfg.MaxConns = 15
+	cfg.MinConns = 2
 
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
