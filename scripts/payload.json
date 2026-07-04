@@ -1,5 +1,5 @@
 {
-  "type": "user.signed_up",
+  "type": "order.created",
   "payload": {
     "user_id": "usr_9999",
     "email": "loadtest@example.com",

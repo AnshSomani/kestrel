@@ -30,7 +30,7 @@ Engineered for extreme reliability and throughput, Kestrel protects downstream A
 Kestrel ships with a real-time React dashboard and comprehensive Grafana metrics to monitor queue depth, delivery throughput, and active subscriptions.
 
 <div align="center">
-  <img src="docs/kesterl-dashboard.png" alt="Kestrel Dashboard Overview" width="800"/>
+  <img src="docs/kestrel-dashboard.png" alt="Kestrel Dashboard Overview" width="800"/>
 </div>
 
 <br/>
