@@ -47,12 +47,26 @@ Kestrel ships with a real-time React dashboard and comprehensive Grafana metrics
 
 ---
 
-## 🚀 Performance Highlights
+## 🚀 Performance Benchmarks
 
-During our rigorous 14-Phase stress testing and Chaos Engineering benchmarks, Kestrel achieved:
-- **1 Million Simultaneous Event Burst:** Successfully drained 1,000,000 backlogged events across 32 concurrent Go pollers with a sustained throughput of **1,344 deliveries/sec**.
-- **High-Concurrency Queue Processing:** Enabled concurrent dequeuing using PostgreSQL `FOR UPDATE SKIP LOCKED` and batched polling, allowing 32 pollers to process jobs with minimal row-lock contention.
-- **Infrastructure Recovery:** Successfully recovered from sequential Redis, PostgreSQL, and application crashes without dropping queued events, validating reliable recovery under infrastructure failures.
+Kestrel was built from the ground up for high-throughput concurrency. To measure performance, stress tests were executed locally against the Docker Compose environment using `autocannon` (`autocannon -c 400 -m POST`). 
+
+> **Note:** These benchmarks were recorded on a local Docker virtual machine. In a production cloud environment (e.g., AWS, Render) with a dedicated high-IOPS PostgreSQL instance and native Linux networking, both ingestion and delivery throughput scale significantly higher.
+
+| Metric | API Ingestion Benchmark | End-to-End Delivery Benchmark |
+| :--- | :--- | :--- |
+| **Description** | Measures raw API and database write capacity. No matching subscriptions were configured to isolate API/database performance. | Measures Kestrel's performance under full load: ingesting an event, matching an active subscription, enqueuing a delivery job, pulling the job via the worker pool, and executing a successful HTTP POST delivery to the target server. |
+| **Total Events** | 2,000,000 | 2,000,000 |
+| **Total Time** | 8.6 minutes (520s) | 20.2 minutes (1211s) |
+| **Average Throughput** | 3,846 req/sec | 1,652 req/sec |
+| **Peak Throughput** | 4,315 req/sec | 2,023 req/sec |
+| **Average API Response Time** | 103 ms | N/A |
+| **Average End-to-End Delivery Latency** | N/A | 241 ms |
+| **P50 Latency** | 101 ms | 227 ms |
+| **P97.5 Latency** | 133 ms | 347 ms |
+| **P99 Latency** | 144 ms | 375 ms |
+| **Delivery Success Rate** | 100% | 100% |
+| **Dropped Messages** | 0 | 0 |
 
 ---
 
