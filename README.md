@@ -126,16 +126,16 @@ Navigate to `http://localhost:5173`. An admin account is seeded on boot:
 
 ---
 
-## 💥 Running the Benchmarks
+## 🧪 Chaos Engineering & Internal Testing
 
-Kestrel ships with a comprehensive CLI benchmarking tool to validate performance on your own hardware.
+Kestrel ships with a comprehensive CLI suite (`cmd/bench`) designed for backend developers. Rather than testing the HTTP API, this suite directly injects millions of rows into PostgreSQL via raw SQL to test Kestrel's internal queue-draining speed and infrastructure recovery capabilities.
 
-**Run the 2 Million Event Stress Test:**
+**Test the Backend Worker Pool (Queue Draining):**
 ```bash
 go run ./cmd/bench -phase twomillion
 ```
 
-**Run the Chaos Engineering Suite:**
+**Run the Chaos Engineering Suite (Failover Simulation):**
 ```bash
 go run ./cmd/bench -phase chaos
 ```
