@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -209,115 +210,72 @@ func (h *Handler) CreateEvent(c echo.Context) error {
 func (h *Handler) ListEvents(c echo.Context) error {
 	ctx := c.Request().Context()
 	limitStr := c.QueryParam("limit")
-	if limitStr == "" {
-		limitStr = "20"
-	}
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil || limit < 1 || limit > 100 {
 		limit = 20
 	}
+	pageStr := c.QueryParam("page")
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 1 {
+		page = 1
+	}
+	offset := (page - 1) * limit
 
-	cursor := c.QueryParam("cursor")
 	eventType := c.QueryParam("type")
-	var events []eventResponse
 
 	userIDStr, _ := c.Get("user_id").(string)
 	tenantID, _ := uuid.Parse(userIDStr)
 
-	if cursor != "" {
-		cursorUUID, err := uuid.Parse(cursor)
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid cursor: must be a valid UUID"})
-		}
-
-		if eventType != "" {
-			rows, err := h.pool.Query(ctx,
-				`SELECT e.id, e.type, e.payload, e.idempotency_key, e.created_at
-				 FROM events e
-				 WHERE e.user_id = $1 AND (e.created_at, e.id) < (SELECT created_at, id FROM events WHERE id = $2)
-				   AND e.type = $3
-				 ORDER BY e.created_at DESC, e.id DESC
-				 LIMIT $4`,
-				tenantID, cursorUUID, eventType, limit,
-			)
-			if err != nil {
-				h.logger.Error("failed to query events", "error", err)
-				return c.JSON(http.StatusInternalServerError, echo.Map{"error": "internal server error"})
-			}
-			defer rows.Close()
-			events, err = scanEvents(rows)
-			if err != nil {
-				h.logger.Error("failed to scan events", "error", err)
-				return c.JSON(http.StatusInternalServerError, echo.Map{"error": "internal server error"})
-			}
-		} else {
-			rows, err := h.pool.Query(ctx,
-				`SELECT e.id, e.type, e.payload, e.idempotency_key, e.created_at
-				 FROM events e
-				 WHERE e.user_id = $1 AND (e.created_at, e.id) < (SELECT created_at, id FROM events WHERE id = $2)
-				 ORDER BY e.created_at DESC, e.id DESC
-				 LIMIT $3`,
-				tenantID, cursorUUID, limit,
-			)
-			if err != nil {
-				h.logger.Error("failed to query events", "error", err)
-				return c.JSON(http.StatusInternalServerError, echo.Map{"error": "internal server error"})
-			}
-			defer rows.Close()
-			events, err = scanEvents(rows)
-			if err != nil {
-				h.logger.Error("failed to scan events", "error", err)
-				return c.JSON(http.StatusInternalServerError, echo.Map{"error": "internal server error"})
-			}
-		}
-	} else {
-		if eventType != "" {
-			rows, err := h.pool.Query(ctx,
-				`SELECT id, type, payload, idempotency_key, created_at
-				 FROM events
-				 WHERE user_id = $1 AND type = $2
-				 ORDER BY created_at DESC, id DESC
-				 LIMIT $3`,
-				tenantID, eventType, limit,
-			)
-			if err != nil {
-				h.logger.Error("failed to query events", "error", err)
-				return c.JSON(http.StatusInternalServerError, echo.Map{"error": "internal server error"})
-			}
-			defer rows.Close()
-			events, err = scanEvents(rows)
-			if err != nil {
-				h.logger.Error("failed to scan events", "error", err)
-				return c.JSON(http.StatusInternalServerError, echo.Map{"error": "internal server error"})
-			}
-		} else {
-			rows, err := h.pool.Query(ctx,
-				`SELECT id, type, payload, idempotency_key, created_at
-				 FROM events
-				 WHERE user_id = $1
-				 ORDER BY created_at DESC, id DESC
-				 LIMIT $2`,
-				tenantID, limit,
-			)
-			if err != nil {
-				h.logger.Error("failed to query events", "error", err)
-				return c.JSON(http.StatusInternalServerError, echo.Map{"error": "internal server error"})
-			}
-			defer rows.Close()
-			events, err = scanEvents(rows)
-			if err != nil {
-				h.logger.Error("failed to scan events", "error", err)
-				return c.JSON(http.StatusInternalServerError, echo.Map{"error": "internal server error"})
-			}
-		}
+	var totalCount int
+	countQuery := `SELECT COUNT(*) FROM events WHERE user_id = $1`
+	var countArgs []any
+	countArgs = append(countArgs, tenantID)
+	if eventType != "" {
+		countQuery += ` AND type = $2`
+		countArgs = append(countArgs, eventType)
+	}
+	if err := h.pool.QueryRow(ctx, countQuery, countArgs...).Scan(&totalCount); err != nil {
+		h.logger.Error("failed to count events", "error", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "internal server error"})
 	}
 
-	resp := eventsListResponse{Events: events}
-	if len(events) == limit {
-		lastID := events[len(events)-1].ID
-		resp.NextCursor = &lastID
+	query := `SELECT id, type, payload, idempotency_key, created_at
+			  FROM events
+			  WHERE user_id = $1`
+	var args []any
+	args = append(args, tenantID)
+	if eventType != "" {
+		query += ` AND type = $2`
+		args = append(args, eventType)
 	}
-	return c.JSON(http.StatusOK, resp)
+	
+	// Add limit and offset
+	query += fmt.Sprintf(` ORDER BY created_at DESC, id DESC LIMIT $%d OFFSET $%d`, len(args)+1, len(args)+2)
+	args = append(args, limit, offset)
+
+	rows, err := h.pool.Query(ctx, query, args...)
+	if err != nil {
+		h.logger.Error("failed to query events", "error", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "internal server error"})
+	}
+	defer rows.Close()
+	events, err := scanEvents(rows)
+	if err != nil {
+		h.logger.Error("failed to scan events", "error", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "internal server error"})
+	}
+
+	totalPages := totalCount / limit
+	if totalCount%limit != 0 {
+		totalPages++
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{
+		"events": events,
+		"total_pages": totalPages,
+		"current_page": page,
+		"total_count": totalCount,
+	})
 }
 
 func (h *Handler) GetEvent(c echo.Context) error {
@@ -369,6 +327,40 @@ func (h *Handler) CreateSubscription(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to create subscription"})
 	}
 	return c.JSON(http.StatusCreated, sub)
+}
+
+func (h *Handler) UpdateSubscription(c echo.Context) error {
+	idStr := c.Param("id")
+	subID, err := uuid.Parse(idStr)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid subscription ID"})
+	}
+
+	var req createSubscriptionRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request"})
+	}
+	ctx := c.Request().Context()
+	userIDStr, ok := c.Get("user_id").(string)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "unauthorized"})
+	}
+	tenantID, _ := uuid.Parse(userIDStr)
+
+	var sub subscriptionResponse
+	err = h.pool.QueryRow(ctx,
+		`UPDATE subscriptions
+		 SET endpoint_url = $1, secret = $2, event_types = $3
+		 WHERE id = $4 AND user_id = $5
+		 RETURNING id, endpoint_url, secret, event_types, is_active, created_at`,
+		req.EndpointURL, req.Secret, req.EventTypes, subID, tenantID,
+	).Scan(&sub.ID, &sub.EndpointURL, &sub.Secret, &sub.EventTypes, &sub.IsActive, &sub.CreatedAt)
+
+	if err != nil {
+		h.logger.Error("failed to update subscription", "error", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to update subscription"})
+	}
+	return c.JSON(http.StatusOK, sub)
 }
 
 func (h *Handler) ListSubscriptions(c echo.Context) error {

@@ -115,13 +115,16 @@ export interface EventItem {
 
 interface EventsResponse {
   events: EventItem[]
-  next_cursor?: string
+  total_pages: number
+  current_page: number
+  total_count: number
 }
 
-export function useEvents(limit = 20, cursor?: string) {
-  const url = cursor
-    ? `/api/events?limit=${limit}&cursor=${cursor}`
-    : `/api/events?limit=${limit}`
+export function useEvents(limit = 20, page = 1, type?: string) {
+  let url = `/api/events?limit=${limit}&page=${page}`
+  if (type) {
+    url += `&type=${encodeURIComponent(type)}`
+  }
   return usePollingApi<EventsResponse>(url, 0)
 }
 

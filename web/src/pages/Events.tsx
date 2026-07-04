@@ -3,24 +3,9 @@ import { useEvents, timeAgo } from '../hooks/useApi'
 import './Events.css'
 
 export default function Events() {
-  const [cursor, setCursor] = useState<string | undefined>(undefined)
-  const [history, setHistory] = useState<string[]>([])
+  const [page, setPage] = useState(1)
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const { data, loading } = useEvents(20, cursor)
-
-  const handleNext = () => {
-    if (data?.next_cursor) {
-      setHistory((prev) => [...prev, cursor || ''])
-      setCursor(data.next_cursor)
-    }
-  }
-
-  const handlePrev = () => {
-    const prev = history.slice()
-    const last = prev.pop()
-    setHistory(prev)
-    setCursor(last || undefined)
-  }
+  const { data, loading } = useEvents(20, page)
 
   return (
     <div className="events-page animate-fade-in">
@@ -94,21 +79,38 @@ export default function Events() {
               </tbody>
             </table>
 
-            <div className="events-pagination" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', marginTop: '2rem' }}>
+            <div className="events-pagination" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginTop: '2rem' }}>
               <button
                 className="pagination-btn"
-                onClick={handlePrev}
-                disabled={history.length === 0}
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={data.current_page === 1}
               >
-                ← Previous
+                ← Prev
               </button>
-              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '14px' }}>
-                Page {history.length + 1}
-              </span>
+              
+              {Array.from({ length: data.total_pages }, (_, i) => i + 1).map(p => {
+                // Show first, last, and +/- 2 from current
+                if (p === 1 || p === data.total_pages || (p >= data.current_page - 2 && p <= data.current_page + 2)) {
+                  return (
+                    <button
+                      key={p}
+                      className="pagination-btn"
+                      onClick={() => setPage(p)}
+                      style={p === data.current_page ? { fontWeight: 'bold', color: 'var(--primary)', borderColor: 'var(--primary)' } : {}}
+                    >
+                      {p}
+                    </button>
+                  )
+                } else if (p === data.current_page - 3 || p === data.current_page + 3) {
+                  return <span key={`ell-${p}`} style={{ color: 'var(--text-muted)' }}>...</span>
+                }
+                return null;
+              })}
+
               <button
                 className="pagination-btn"
-                onClick={handleNext}
-                disabled={!data.next_cursor}
+                onClick={() => setPage(p => Math.min(data.total_pages, p + 1))}
+                disabled={data.current_page === data.total_pages}
               >
                 Next →
               </button>

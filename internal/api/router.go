@@ -48,6 +48,7 @@ func SetupRouter(h *Handler, cfg *config.Config, m *metrics.Metrics, logger *slo
 	{
 		// Subscriptions
 		shared.POST("/subscriptions", h.CreateSubscription)
+		shared.PUT("/subscriptions/:id", h.UpdateSubscription)
 		shared.GET("/subscriptions", h.ListSubscriptions)
 	}
 

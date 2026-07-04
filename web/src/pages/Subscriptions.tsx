@@ -11,6 +11,7 @@ const DEFAULT_EVENTS = [
 export default function Subscriptions() {
   const { data, loading, refetch } = useSubscriptions()
   const [showForm, setShowForm] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
   const [endpoint, setEndpoint] = useState('')
   const [secret, setSecret] = useState('')
   
@@ -43,6 +44,33 @@ export default function Subscriptions() {
     }
   }
 
+  const handleEdit = (sub: any) => {
+    setEditId(sub.id)
+    setEndpoint(sub.endpoint_url)
+    setSecret(sub.secret)
+    setSelectedEvents(new Set(sub.event_types))
+    
+    // Add any custom events to availableEvents
+    const nextAvailable = [...availableEvents]
+    sub.event_types.forEach((t: string) => {
+      if (!nextAvailable.includes(t)) {
+        nextAvailable.push(t)
+      }
+    })
+    setAvailableEvents(nextAvailable)
+    setShowForm(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleCancel = () => {
+    setShowForm(false)
+    setEditId(null)
+    setEndpoint('')
+    setSecret('')
+    setSelectedEvents(new Set(DEFAULT_EVENTS))
+    setErrorMsg('')
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (selectedEvents.size === 0) {
@@ -55,8 +83,12 @@ export default function Subscriptions() {
       const eventTypes = Array.from(selectedEvents)
       const token = localStorage.getItem('kestrel_access_token')
       const API_BASE = import.meta.env.VITE_API_URL || '';
-      const res = await fetch(`${API_BASE}/api/subscriptions`, {
-        method: 'POST',
+      const url = editId 
+        ? `${API_BASE}/api/subscriptions/${editId}`
+        : `${API_BASE}/api/subscriptions`
+      
+      const res = await fetch(url, {
+        method: editId ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -68,11 +100,9 @@ export default function Subscriptions() {
         })
       })
       if (!res.ok) {
-        throw new Error('Failed to create subscription')
+        throw new Error(editId ? 'Failed to update subscription' : 'Failed to create subscription')
       }
-      setEndpoint('')
-      setSecret('')
-      setShowForm(false)
+      handleCancel()
       refetch()
     } catch (err: any) {
       setErrorMsg(err.message)
@@ -88,14 +118,14 @@ export default function Subscriptions() {
           <h1>Subscriptions</h1>
           <span className="subs-subtitle">Active webhook endpoints</span>
         </div>
-        <button className="create-sub-btn" onClick={() => setShowForm(!showForm)}>
+        <button className="create-sub-btn" onClick={() => showForm ? handleCancel() : setShowForm(true)}>
           {showForm ? 'Cancel' : '+ New Subscription'}
         </button>
       </div>
 
       {showForm && (
         <form className="glass-card create-sub-form" onSubmit={handleSubmit}>
-          <h3>Create New Subscription</h3>
+          <h3>{editId ? 'Edit Subscription' : 'Create New Subscription'}</h3>
           {errorMsg && <div className="form-error">{errorMsg}</div>}
           <div className="form-group">
             <label>Endpoint URL</label>
@@ -143,7 +173,7 @@ export default function Subscriptions() {
             </div>
           </div>
           <button type="submit" disabled={submitting} className="submit-btn">
-            {submitting ? 'Creating...' : 'Create Subscription'}
+            {submitting ? 'Saving...' : (editId ? 'Save Changes' : 'Create Subscription')}
           </button>
         </form>
       )}
@@ -164,6 +194,7 @@ export default function Subscriptions() {
                 <th>Event Types</th>
                 <th>Status</th>
                 <th>Created</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -188,6 +219,15 @@ export default function Subscriptions() {
                   </td>
                   <td className="text-muted" title={sub.created_at}>
                     {timeAgo(sub.created_at)}
+                  </td>
+                  <td>
+                    <button 
+                      className="pagination-btn"
+                      style={{ padding: '0.25rem 0.75rem', fontSize: '0.85rem' }}
+                      onClick={() => handleEdit(sub)}
+                    >
+                      Edit
+                    </button>
                   </td>
                 </tr>
               ))}
