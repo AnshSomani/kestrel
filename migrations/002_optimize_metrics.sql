@@ -8,6 +8,9 @@ CREATE TABLE IF NOT EXISTS system_stats (
 
 DO $$
 BEGIN
+    -- Prevent deadlocks with concurrent worker queries (e.g. DequeueBatch) by locking both tables atomically
+    LOCK TABLE events, delivery_jobs IN SHARE ROW EXCLUSIVE MODE;
+
     -- Only run these inserts/updates if the table hasn't been migrated to multi-tenant yet.
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='system_stats' AND column_name='user_id') THEN
         INSERT INTO system_stats (key, value) VALUES ('total_events', 0) ON CONFLICT DO NOTHING;
