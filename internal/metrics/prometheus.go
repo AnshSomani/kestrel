@@ -39,11 +39,15 @@ type Metrics struct {
 
 	// PanicsTotal counts recovered panics inside worker goroutines.
 	PanicsTotal prometheus.Counter
+
+	// DBStats flushes metrics to the database to avoid row contention.
+	DBStats *DBStatsFlusher
 }
 
 // NewMetrics creates and auto-registers all Prometheus metrics for Kestrel.
-func NewMetrics() *Metrics {
+func NewMetrics(dbStats *DBStatsFlusher) *Metrics {
 	return &Metrics{
+		DBStats: dbStats,
 		EventsIngested: promauto.NewCounter(prometheus.CounterOpts{
 			Namespace: "kestrel",
 			Name:      "events_ingested_total",

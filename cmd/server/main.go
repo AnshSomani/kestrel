@@ -67,8 +67,10 @@ func main() {
 	defer redisStore.Close()
 	logger.Info("connected to redis")
 
-	// 6. Initialize Prometheus metrics
-	m := metrics.NewMetrics()
+	// 6. Initialize Database Stats Flusher and Prometheus metrics
+	dbStats := metrics.NewDBStatsFlusher(pg.Pool(), logger)
+	dbStats.Start(ctx, 1*time.Second)
+	m := metrics.NewMetrics(dbStats)
 
 	// 7. Initialize core components
 	q := queue.NewPostgresQueue(pg.Pool())
@@ -117,7 +119,7 @@ func main() {
 	)
 
 	// Start cleanup worker
-	cleanup := worker.NewCleanupWorker(pg.Pool(), logger)
+	cleanup := worker.NewCleanupWorker(pg.Pool(), logger, m)
 	cleanup.Start()
 	logger.Info("cleanup worker started")
 

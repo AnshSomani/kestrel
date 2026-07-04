@@ -145,6 +145,8 @@ func (p *Pool) poll(ctx context.Context, id int) {
 				continue
 			}
 			for _, job := range jobs {
+				p.metrics.DBStats.TrackUpdate(job.UserID, "delivery_pending", -1)
+				p.metrics.DBStats.TrackUpdate(job.UserID, "delivery_in_flight", 1)
 				p.dispatch(ctx, job)
 			}
 		}
@@ -181,6 +183,8 @@ func (p *Pool) dispatch(ctx context.Context, job *queue.Job) {
 						nil,
 						time.Now().Add(p.retryCfg.BaseDelay),
 					)
+					p.metrics.DBStats.TrackUpdate(job.UserID, "delivery_in_flight", -1)
+					p.metrics.DBStats.TrackUpdate(job.UserID, "delivery_pending", 1)
 				}
 				<-p.sem // release semaphore slot
 				p.metrics.ActiveDeliveries.Dec()
@@ -222,6 +226,8 @@ func (p *Pool) process(ctx context.Context, job *queue.Job) {
 		logger.Warn("circuit open, re-queuing")
 		p.metrics.DeliveriesTotal.WithLabelValues("circuit_open").Inc()
 		_ = p.queue.Requeue(ctx, job.ID, "circuit breaker open", time.Now().Add(p.retryCfg.BaseDelay))
+		p.metrics.DBStats.TrackUpdate(job.UserID, "delivery_in_flight", -1)
+		p.metrics.DBStats.TrackUpdate(job.UserID, "delivery_pending", 1)
 		return
 	}
 
@@ -240,6 +246,8 @@ func (p *Pool) process(ctx context.Context, job *queue.Job) {
 		p.metrics.DeliveriesTotal.WithLabelValues("rate_limited").Inc()
 		// Re-queue with a short delay to avoid tight retry loops.
 		_ = p.queue.Requeue(ctx, job.ID, "rate limited", time.Now().Add(5*time.Second))
+		p.metrics.DBStats.TrackUpdate(job.UserID, "delivery_in_flight", -1)
+		p.metrics.DBStats.TrackUpdate(job.UserID, "delivery_pending", 1)
 		return
 	}
 
@@ -257,6 +265,8 @@ func (p *Pool) process(ctx context.Context, job *queue.Job) {
 		_ = p.cb.RecordSuccess(ctx, job.EndpointURL)
 		p.metrics.DeliveriesTotal.WithLabelValues("delivered").Inc()
 		_ = p.queue.MarkDelivered(ctx, job.ID)
+		p.metrics.DBStats.TrackUpdate(job.UserID, "delivery_in_flight", -1)
+		p.metrics.DBStats.TrackUpdate(job.UserID, "delivery_delivered", 1)
 		return
 	}
 
@@ -292,6 +302,8 @@ func (p *Pool) process(ctx context.Context, job *queue.Job) {
 			"delay", delay,
 		)
 		_ = p.queue.MarkFailed(ctx, job.ID, result.Error, statusCode, time.Now().Add(delay))
+		p.metrics.DBStats.TrackUpdate(job.UserID, "delivery_in_flight", -1)
+		p.metrics.DBStats.TrackUpdate(job.UserID, "delivery_pending", 1)
 	} else {
 		// All retries exhausted — move to the dead letter queue so the job
 		// is preserved for manual inspection but no longer retried.
@@ -300,6 +312,8 @@ func (p *Pool) process(ctx context.Context, job *queue.Job) {
 			"attempts", job.AttemptCount,
 		)
 		_ = p.queue.MarkDead(ctx, job.ID, result.Error)
+		p.metrics.DBStats.TrackUpdate(job.UserID, "delivery_in_flight", -1)
+		p.metrics.DBStats.TrackUpdate(job.UserID, "delivery_dead", 1)
 	}
 }
 

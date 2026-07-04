@@ -193,9 +193,11 @@ func (h *Handler) CreateEvent(c echo.Context) error {
 			return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to create delivery jobs"})
 		}
 		deliveriesCreated = len(subscriptionIDs)
+		h.metrics.DBStats.TrackUpdate(tenantID, "delivery_pending", int64(deliveriesCreated))
 	}
 
 	h.metrics.EventsIngested.Inc()
+	h.metrics.DBStats.TrackUpdate(tenantID, "total_events", 1)
 
 	return c.JSON(http.StatusCreated, eventResponse{
 		ID:                eventID.String(),
