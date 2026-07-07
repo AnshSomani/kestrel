@@ -19,8 +19,8 @@ function decodeToken(token: string) {
 
 export const Login: React.FC = () => {
   const [isSignup, setIsSignup] = useState(false);
-  const [email, setEmail] = useState('admin@kestrel.local');
-  const [password, setPassword] = useState('password');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
