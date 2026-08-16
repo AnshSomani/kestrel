@@ -53,11 +53,11 @@ Kestrel ships with a real-time React dashboard and comprehensive Grafana metrics
 
 | Component | Technology | Description |
 | :--- | :--- | :--- |
-| **Backend Engine** | Go 1.24, Echo, `pgx`, `go-redis` | Ingests webhooks, authenticates requests (JWT/API Keys), and orchestrates the highly concurrent poller pool. |
+| **Backend Engine** | Node.js 22, Express, `pg`, `ioredis` | Ingests webhooks, authenticates requests (JWT/API Keys), and orchestrates the concurrent worker thread pool. |
 | **Primary Database** | PostgreSQL 17 | Handles multi-tenant data storage and manages the high-throughput delivery queue utilizing `SKIP LOCKED`. |
 | **Coordination Layer** | Redis 8 | Maintains distributed circuit breaker states and executes sliding-window tenant rate limits. |
 | **Frontend** | React, Vite, TypeScript, Recharts | Provides a real-time observability dashboard for tracking queue depth, delivery success rates, and live payloads. |
-| **Observability** | Prometheus, Grafana | Exposes and visualizes custom Go metrics for monitoring throughput, latency, and worker utilization. |
+| **Observability** | Prometheus, Grafana | Exposes and visualizes custom Node.js metrics for monitoring throughput, latency, and worker utilization. |
 | **Infrastructure** | Docker, Docker Compose | Fully containerized multi-container deployment designed for zero-cost hosting and easy chaos testing. |
 
 ---
@@ -126,18 +126,17 @@ Navigate to `http://localhost:5173`. An admin account is seeded on boot:
 
 ---
 
-## 🧪 Chaos Engineering & Internal Testing
+## 🧪 Stress & Load Testing
 
-Kestrel ships with a comprehensive CLI suite (`cmd/bench`) designed for backend developers. Rather than testing the HTTP API, this suite directly injects millions of rows into PostgreSQL via raw SQL to test Kestrel's internal queue-draining speed and infrastructure recovery capabilities.
+Kestrel can be load-tested using `autocannon` to validate queue throughput, worker worker_thread processing, and database latency under high concurrency.
 
-**Test the Backend Worker Pool (Queue Draining):**
+**Run an API Ingestion & Delivery Stress Test:**
 ```bash
-go run ./cmd/bench -phase twomillion
-```
-
-**Run the Chaos Engineering Suite (Failover Simulation):**
-```bash
-go run ./cmd/bench -phase chaos
+npx autocannon -c 400 -a 100000 -m POST \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: kestrel-dev-key" \
+  -i scripts/payload.json \
+  http://localhost:8080/api/events
 ```
 
 ---
