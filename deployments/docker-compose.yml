@@ -38,9 +38,9 @@ services:
       - "8080:8080"
     environment:
       DATABASE_URL: postgres://kestrel:kestrel@postgres:5432/kestrel?sslmode=disable
-      REDIS_URL: redis:6379
-      API_KEY: kestrel-dev-key
-      SERVER_PORT: "8080"
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: kestrel-jwt-secret-change-in-prod
+      PORT: "8080"
       WORKER_POOL_SIZE: "1000"
       MAX_CONCURRENT: "1000"
       POLL_INTERVAL_MS: "50"

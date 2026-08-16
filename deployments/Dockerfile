@@ -1,22 +1,20 @@
-FROM golang:1.26-alpine AS builder
+# ─── Stage 1: install production dependencies ────────────────────────────────
+FROM node:22-alpine AS deps
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev
 
+# ─── Stage 2: runtime image ──────────────────────────────────────────────────
+FROM node:22-alpine
 WORKDIR /app
 
-# Cache dependency downloads
-COPY go.mod go.sum ./
-RUN go mod download
+# Copy installed modules from deps stage
+COPY --from=deps /app/node_modules ./node_modules
 
-# Copy source code and build
-COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /kestrel ./cmd/server
-
-# --- Runtime stage ---
-FROM alpine:3.20
-
-RUN apk --no-cache add ca-certificates
-
-COPY --from=builder /kestrel /kestrel
+# Copy application source and migrations
+COPY package*.json ./
+COPY src/ ./src/
+COPY migrations/ ./migrations/
 
 EXPOSE 8080
-
-CMD ["/kestrel"]
+CMD ["node", "src/index.js"]
